@@ -1,0 +1,93 @@
+---
+title: "Mine Data"
+Author: Yiyang Jiang
+---
+
+# Journal Analysis Report
+
+This report shows the results of two analytical queries against our MySQL data warehouse.
+
+## Analytical Query I: Top Five Journals with the Most Articles Published
+
+The following query retrieves the top five journals with the most articles published in them for the time period:
+
+```{r}
+library(RMySQL)   
+
+db_user <- 'yiyangjiang'
+db_password <- 'Jyy123456'
+db_name <- 'SandboxDB'
+db_host <- 'cs5200-p2.cmwnfqdoq8fo.us-west-2.rds.amazonaws.com' 
+db_port <- 3306 # always this port unless you change it during installation
+
+# 3. Connect to DB
+mydb <-  dbConnect(MySQL(), user = db_user, password = db_password,
+                   dbname = db_name, host = db_host, port = db_port)
+```
+The following query retrieves the top five journals with the most articles published in them for the time period:
+```{sql connection=mydb}
+SELECT Title, NumArticles
+FROM journal_fact
+ORDER BY NumArticles DESC
+LIMIT 5;
+```
+### Retrieve the data from the MySQL data warehouse
+```{r}
+query <- "SELECT Title, NumArticles
+          FROM journal_fact
+          ORDER BY NumArticles DESC
+          LIMIT 5"
+
+top_journals <- dbGetQuery(mydb, query)
+```
+
+### create a bar chart to visualize the result
+```{r}
+library(ggplot2)
+ggplot(top_journals, aes(x = reorder(Title, -NumArticles), y = NumArticles, fill = Title)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  labs(title = "Top Five Journals with the Most Articles Published",
+       x = "Journal Title",
+       y = "Number of Articles") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1),
+        legend.position = "none") +
+  scale_fill_brewer(palette = "Set1")
+```
+
+## Analytical Query II: Number of Articles per Journal per Year Broken Down by Quarter
+
+The following query retrieves the number of articles per journal per year broken down by quarter:
+```{sql connection=mydb}
+SELECT Title, PubDateYear, PubQuarter, SUM(NumArticles) as TotalArticles
+FROM journal_fact
+GROUP BY Title, PubDateYear, PubQuarter
+ORDER BY PubDateYear ASC, PubQuarter ASC;
+```
+### Retrieve the data from the MySQL data warehouse
+```{r}
+query <- "SELECT Title, PubDateYear, PubQuarter, SUM(NumArticles) as TotalArticles
+          FROM journal_fact
+          GROUP BY Title, PubDateYear, PubQuarter
+          ORDER BY PubDateYear ASC, PubQuarter ASC"
+
+data <- dbGetQuery(mydb, query)
+```
+
+### create a bar chart to visualize the result
+```{r}
+data$PubDate <- paste0(data$PubDateYear, "-Q", data$PubQuarter)
+data$PubDate <- as.factor(data$PubDate)
+
+# Step 5: Create the visualization
+ggplot(data, aes(x = PubDate, y = TotalArticles)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  labs(title = "Total Articles per Journal by Year and Quarter",
+       x = "Year and Quarter",
+       y = "Total Articles") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+
